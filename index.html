@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Neon Futbol</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Outfit:wght@500;700&display=swap');
+:root{--ink:#08120d;--lime:#d4ff39;--cyan:#58e6ef}
+*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#07120d;color:#fff;font-family:Outfit,Arial,sans-serif;touch-action:none}
+#app{position:relative;width:100%;height:100%;background:radial-gradient(circle at 50% 40%,#183d2a 0,#0b2117 58%,#06110c 100%)}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#top{position:absolute;z-index:4;left:50%;top:18px;transform:translateX(-50%);width:min(660px,62vw);height:86px;display:grid;grid-template-columns:1fr 130px 1fr;align-items:center;pointer-events:none}
+.score{height:66px;display:flex;align-items:center;justify-content:center;gap:12px;border:1px solid rgba(255,255,255,.12);background:rgba(5,20,13,.88);box-shadow:0 12px 30px rgba(0,0,0,.25);backdrop-filter:blur(12px)}
+.score.left{border-radius:32px 10px 10px 32px}.score.right{border-radius:10px 32px 32px 10px}
+.team-name{font:800 17px 'Barlow Condensed';letter-spacing:2px}.goals{font:800 38px 'Barlow Condensed';color:var(--lime)}
+.score.right .goals{color:#69d7ff}
+.clock{height:86px;border-radius:18px;background:#eff7e9;color:#102017;display:flex;flex-direction:column;align-items:center;justify-content:center;border:5px solid #14271c;box-shadow:0 8px 25px rgba(0,0,0,.35);z-index:2;font:800 29px 'Barlow Condensed'}
+.clock small{font:700 10px Outfit;letter-spacing:2px;color:#63806d;margin-top:-3px}
+#menu,#result{position:absolute;z-index:8;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,rgba(21,62,39,.82),rgba(3,10,7,.97));transition:.35s;backdrop-filter:blur(6px)}
+.hidden{opacity:0!important;pointer-events:none!important}
+.logo{font:800 clamp(54px,9vw,112px) 'Barlow Condensed';line-height:.75;letter-spacing:-4px;text-align:center;text-shadow:0 10px 30px rgba(0,0,0,.35)}
+.logo span{display:block;color:var(--lime);font-size:.64em;letter-spacing:12px;margin-top:20px}
+.teams{display:flex;align-items:center;gap:28px;margin:38px 0 26px}.vs{font:800 20px 'Barlow Condensed';color:#90a397}.color{width:92px;height:92px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:800 32px 'Barlow Condensed';border:7px solid rgba(255,255,255,.12);box-shadow:0 12px 35px rgba(0,0,0,.35)}
+.color.p1{background:linear-gradient(145deg,#dfff52,#91c900);color:#102300}.color.p2{background:linear-gradient(145deg,#70efff,#178dba);color:#07212a}
+button{border:0;border-radius:999px;padding:16px 42px;background:var(--lime);color:#10200c;font:800 20px 'Barlow Condensed';letter-spacing:2px;cursor:pointer;box-shadow:0 12px 30px rgba(181,255,40,.18);transition:.15s}button:active{transform:scale(.96)}
+.controls{margin-top:19px;color:#9bad9f;font-size:12px;text-align:center}.controls b{color:#fff}
+#goalText{position:absolute;z-index:6;left:50%;top:42%;transform:translate(-50%,-50%) scale(.7);font:800 clamp(64px,12vw,150px) 'Barlow Condensed';color:#fff;text-shadow:0 8px 0 #9bc900,0 20px 40px rgba(0,0,0,.5);opacity:0;transition:.25s}
+#goalText.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.touch{position:absolute;z-index:5;bottom:24px;display:none;width:154px;height:154px;border-radius:50%;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.045)}
+.touch.left{left:20px}.touch.right{right:20px}
+.pad{position:absolute;left:50%;top:50%;width:56px;height:56px;transform:translate(-50%,-50%);border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18)}
+#shoot1,#shoot2{position:absolute;z-index:6;width:96px;height:96px;bottom:50px;top:auto;border-radius:50%;background:rgba(212,255,57,.17);border:2px solid rgba(212,255,57,.35);color:var(--lime);font:800 16px 'Barlow Condensed';display:none;align-items:center;justify-content:center}#shoot1{left:180px}#shoot2{right:180px}@media (pointer:coarse),(max-width:800px){#shoot1,#shoot2{display:flex}.shoot{}}
+@media (pointer:coarse),(max-width:800px){.touch{display:block}#top{top:10px;width:min(590px,76vw);height:68px}.score{height:52px}.clock{height:68px;border-width:4px}.team-name{display:none}.clock{width:96px}.goals{font-size:31px}.controls{display:none}}
+@media(max-width:520px){#top{width:82vw;grid-template-columns:1fr 82px 1fr}.clock{width:82px;font-size:24px}.score{height:46px}.touch{width:128px;height:128px;bottom:18px}.touch.left{left:10px}.touch.right{right:10px}.shoot{width:82px;height:82px}}
+</style></head>
+<body>
+<div id="app">
+<canvas id="game"></canvas>
+<div id="top"><div class="score left"><span class="team-name">YEŞİL</span><span id="s1" class="goals">0</span></div><div class="clock"><span id="time">1:30</span><small>MAÇ</small></div><div class="score right"><span id="s2" class="goals">0</span><span class="team-name">MAVİ</span></div></div>
+<div id="goalText">GOL!</div>
+<div id="menu"><div class="logo">NEON<span>FUTBOL</span></div><div class="teams"><div class="color p1">P1</div><div class="vs">VS</div><div class="color p2">P2</div></div><button id="start">MAÇA BAŞLA</button><div class="controls"><b>P1:</b> WASD + BOŞLUK &nbsp;&nbsp; <b>P2:</b> OK TUŞLARI + ENTER</div></div>
+<div id="result" class="hidden"><div id="winner" class="logo">MAÇ BİTTİ<span></span></div><button id="again" style="margin-top:40px">TEKRAR OYNAT</button></div>
+<div class="touch left" id="pad1"><div class="pad"></div></div><div class="touch right" id="pad2"><div class="pad"></div></div><div id="shoot1">ŞUT</div><div id="shoot2">ŞUT</div>
+</div>
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');let W,H,dpr,playing=false,paused=false,gameTime=90,last=0,scores=[0,0],goalTimer=0,shake=0;
+const keys={};addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if([' ','enter','arrowup','arrowdown','arrowleft','arrowright'].includes(e.key.toLowerCase()))e.preventDefault();});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',resize);resize();
+function field(){let m=Math.min(W*.035,30),fw=W-2*m,fh=H-2*m;return {x:m,y:m,w:fw,h:fh}}
+let ball={x:0,y:0,vx:0,vy:0,r:12};
+const players=[
+ {x:0,y:0,vx:0,vy:0,r:23,team:0,angle:0},
+ {x:0,y:0,vx:0,vy:0,r:23,team:1,angle:Math.PI}
+];
+function resetPositions(){let f=field();ball.x=W/2;ball.y=H/2;ball.vx=ball.vy=0;players[0].x=f.x+f.w*.22;players[0].y=H/2;players[1].x=f.x+f.w*.78;players[1].y=H/2;for(let p of players){p.vx=p.vy=0}}
+resetPositions();
+function drawField(f){ctx.save();let sx=shake?(Math.random()*shake-shake/2):0,sy=shake?(Math.random()*shake-shake/2):0;ctx.translate(sx,sy);
+ctx.fillStyle='#14512f';ctx.fillRect(0,0,W,H);ctx.strokeStyle='rgba(230,255,238,.72)';ctx.lineWidth=3;
+// alternating pitch panels
+let rows=8,cols=12,cw=f.w/cols,ch=f.h/rows;for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){ctx.fillStyle=(x+y)%2?'rgba(255,255,255,.018)':'rgba(0,0,0,.018)';ctx.fillRect(f.x+x*cw,f.y+y*ch,cw+1,ch+1)}
+ctx.strokeRect(f.x,f.y,f.w,f.h);ctx.beginPath();ctx.moveTo(W/2,f.y);ctx.lineTo(W/2,f.y+f.h);ctx.stroke();ctx.beginPath();ctx.arc(W/2,H/2,Math.min(f.w,f.h)*.13,0,Math.PI*2);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.65)';ctx.beginPath();ctx.arc(W/2,H/2,4,0,7);ctx.fill();
+let gh=Math.min(f.h*.28,190),gw=Math.min(f.w*.065,55);ctx.fillStyle='#72c596';ctx.fillRect(f.x-gw,f.y+(f.h-gh)/2,gw,gh);ctx.fillRect(f.x+f.w,f.y+(f.h-gh)/2,gw,gh);ctx.strokeRect(f.x-gw,f.y+(f.h-gh)/2,gw,gh);ctx.strokeRect(f.x+f.w,f.y+(f.h-gh)/2,gw,gh);
+ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(f.x-gw,f.y+(f.h-gh)/2,gw,gh);ctx.fillRect(f.x+f.w,f.y+(f.h-gh)/2,gw,gh);ctx.restore()}
+function circle(p,team){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle||0);ctx.shadowColor=team?'rgba(73,209,255,.55)':'rgba(206,255,62,.55)';ctx.shadowBlur=18;ctx.beginPath();ctx.arc(0,0,p.r,0,7);ctx.fillStyle=team?'#49bee1':'#bbed33';ctx.fill();ctx.shadowBlur=0;ctx.lineWidth=3;ctx.strokeStyle='rgba(255,255,255,.85)';ctx.stroke();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(p.r*.28,0,p.r*.16,0,7);ctx.fill();ctx.restore()}
+function drawBall(){ctx.save();ctx.translate(ball.x,ball.y);ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=10;ctx.shadowOffsetY=7;ctx.beginPath();ctx.arc(0,0,ball.r,0,7);ctx.fillStyle='#f6f4dc';ctx.fill();ctx.shadowBlur=0;ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(7,-2);ctx.lineTo(4,6);ctx.lineTo(-4,6);ctx.lineTo(-7,-2);ctx.closePath();ctx.fillStyle='#26392d';ctx.fill();ctx.restore()}
+function control(p,index){let ax=0,ay=0,shoot=false;if(index===0){ax=(keys.d?1:0)-(keys.a?1:0);ay=(keys.s?1:0)-(keys.w?1:0);shoot=keys[' ']||touchShoot[0]}else{ax=(keys.arrowright?1:0)-(keys.arrowleft?1:0);ay=(keys.arrowdown?1:0)-(keys.arrowup?1:0);shoot=keys.enter||touchShoot[1]}let len=Math.hypot(ax,ay)||1;ax/=len;ay/=len;if(touchMove[index]){ax=touchMove[index].x;ay=touchMove[index].y;if(Math.hypot(ax,ay)>1){ax/=Math.hypot(ax,ay);ay/=Math.hypot(ax,ay)}}p.vx+=ax*.8;p.vy+=ay*.8;p.vx*=.91;p.vy*=.91;if(Math.hypot(p.vx,p.vy)>.2)p.angle=Math.atan2(p.vy,p.vx);
+if(shoot)kick(p,index)}
+let cooldown=[0,0];function kick(p,index){if(cooldown[index]>0)return;let dx=ball.x-p.x,dy=ball.y-p.y,d=Math.hypot(dx,dy);if(d<p.r+ball.r+30){let power=d<p.r+ball.r+8?10:6;ball.vx+=dx/d*power+Math.cos(p.angle)*2;ball.vy+=dy/d*power+Math.sin(p.angle)*2;cooldown[index]=18}}
+function physics(dt){dt=Math.min(dt/16.67,2);let f=field(),gh=Math.min(f.h*.28,190);for(let p of players){p.x+=p.vx*dt;p.y+=p.vy*dt;p.x=Math.max(f.x+p.r,Math.min(f.x+f.w-p.r,p.x));p.y=Math.max(f.y+p.r,Math.min(f.y+f.h-p.r,p.y))}ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;ball.vx*=.987;ball.vy*=.987;cooldown=[cooldown[0]>0?cooldown[0]-dt:0,cooldown[1]>0?cooldown[1]-dt:0];
+let xok=Math.abs(ball.y-H/2)<gh/2;if(ball.x>f.x+f.w&&xok){goal(0)}else if(ball.x<f.x&&xok){goal(1)}else{if(ball.x<f.x+ball.r||ball.x>f.x+f.w-ball.r){ball.x=Math.max(f.x+ball.r,Math.min(f.x+f.w-ball.r,ball.x));ball.vx*=-.82}if(ball.y<f.y+ball.r||ball.y>f.y+f.h-ball.r){ball.y=Math.max(f.y+ball.r,Math.min(f.y+f.h-ball.r,ball.y));ball.vy*=-.82}}
+for(let p of players){let dx=ball.x-p.x,dy=ball.y-p.y,d=Math.hypot(dx,dy),min=p.r+ball.r;if(d<min&&d>0){let nx=dx/d,ny=dy/d,over=min-d;ball.x+=nx*over;ball.y+=ny*over;ball.vx+=nx*1.7+p.vx*.28;ball.vy+=ny*1.7+p.vy*.28}}
+shake=Math.max(0,shake-.5)}
+function goal(team){if(goalTimer>0)return;scores[team]++;document.getElementById(team?'s2':'s1').textContent=scores[team];goalTimer=150;shake=12;let gt=document.getElementById('goalText');gt.textContent=team?'MAVİ GOLÜ':'YEŞİL GOL!';gt.className='show';setTimeout(()=>gt.className='',900)}
+function loop(t){let dt=t-last||16;last=t;if(playing&&!paused){if(goalTimer>0){goalTimer-=dt;if(goalTimer<=0)resetPositions()}else{control(players[0],0);control(players[1],1);physics(dt)}gameTime-=dt/1000;if(gameTime<=0){gameTime=0;finish()}}drawField(field());for(let p of players)circle(p,p.team);drawBall();let sec=Math.max(0,Math.ceil(gameTime));document.getElementById('time').textContent=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');requestAnimationFrame(loop)}requestAnimationFrame(loop);
+function start(){scores=[0,0];document.getElementById('s1').textContent='0';document.getElementById('s2').textContent='0';gameTime=90;goalTimer=0;resetPositions();document.getElementById('menu').className='hidden';document.getElementById('result').className='hidden';playing=true;paused=false}document.getElementById('start').onclick=start;document.getElementById('again').onclick=start;
+function finish(){playing=false;let w=scores[0]==scores[1]?'BERABERE':scores[0]>scores[1]?'YEŞİL KAZANDI':'MAVİ KAZANDI';document.querySelector('#winner span').textContent=w;document.getElementById('result').className=''}
+let touchMove=[null,null],touchShoot=[false,false];
+function setupPad(el,index){let id=null;el.addEventListener('pointerdown',e=>{e.preventDefault();id=e.pointerId;el.setPointerCapture(id);update(e)});el.addEventListener('pointermove',e=>{if(e.pointerId===id)update(e)});el.addEventListener('pointerup',()=>{id=null;touchMove[index]=null});function update(e){let r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;touchMove[index]={x:(e.clientX-cx)/(r.width*.35),y:(e.clientY-cy)/(r.height*.35)}}}
+setupPad(document.getElementById('pad1'),0);
+setupPad(document.getElementById('pad2'),1);
+document.getElementById('shoot1').addEventListener('pointerdown',e=>{e.preventDefault();touchShoot[0]=true});
+document.getElementById('shoot1').addEventListener('pointerup',()=>touchShoot[0]=false);
+document.getElementById('shoot1').addEventListener('pointercancel',()=>touchShoot[0]=false);
+document.getElementById('shoot2').addEventListener('pointerdown',e=>{e.preventDefault();touchShoot[1]=true});document.getElementById('shoot2').addEventListener('pointerup',()=>touchShoot[1]=false);document.getElementById('shoot2').addEventListener('pointercancel',()=>touchShoot[1]=false);
+</script>
+</body></html>
