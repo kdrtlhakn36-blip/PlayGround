@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Neon Futbol</title>
+  <style>
+    :* { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #070a12; color: white; font-family: Inter, system-ui, sans-serif; }
+    body { display: grid; place-items: center; }
+    canvas { width: 100vw; height: 100vh; display: block; }
+    #ui { position: fixed; inset: 0; pointer-events: none; }
+    .scorebar { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; background: rgba(7,10,18,.78); border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 8px 16px; backdrop-filter: blur(12px); }
+    .score { font-size: clamp(20px,3.2vw,38px); font-weight: 900; min-width: 38px; text-align: center; }
+    #blueScore { color: #39bdf8; } #redScore { color: #fb5a66; }
+    #clock { min-width: 70px; text-align: center; font-weight: 800; color: #f4f7ff; }
+    #message { position: absolute; left: 50%; top: 38%; transform: translate(-50%,-50%); text-align: center; text-shadow: 0 4px 25px #000; }
+    #message h1 { margin: 0; font-size: clamp(28px,6vw,72px); letter-spacing: -2px; }
+    #message p { margin: 10px 0 0; color: #b8c2db; font-size: clamp(12px,2vw,18px); }
+    #controls { position: absolute; inset: auto 16px 16px; display: flex; justify-content: space-between; pointer-events: none; }
+    .pad { display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px); gap: 5px; pointer-events: auto; }
+    .touch { border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.08); color: white; border-radius: 50%; touch-action: none; user-select: none; font-size: 20px; backdrop-filter: blur(6px); }
+    .touch.active { background: rgba(255,255,255,.25); transform: scale(.94); }
+    .touch.up { grid-column:2; grid-row:1; } .touch.left{grid-column:1;grid-row:2}.touch.right{grid-column:3;grid-row:2}.touch.down{grid-column:2;grid-row:3}.touch.kick{grid-column:2;grid-row:2;border-radius:18px;font-weight:900}
+    @media (hover:hover) and (pointer:fine) { #controls { display:none; } }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="ui">
+    <div class="scorebar"><span class="score" id="blueScore">0</span><span id="clock">01:30</span><span class="score" id="redScore">0</span></div>
+    <div id="message"><h1>NEON FUTBOL</h1><p>Başlamak için BOŞLUK'a bas</p></div>
+    <div id="controls">
+      <div class="pad" id="pad1"><button class="touch up" data-p="1" data-key="w">▲</button><button class="touch left" data-p="1" data-key="a">◀</button><button class="touch kick" data-p="1" data-key=" ">ŞUT</button><button class="touch right" data-p="1" data-key="d">▶</button><button class="touch down" data-p="1" data-key="s">▼</button></div>
+      <div class="pad" id="pad2"><button class="touch up" data-p="2" data-key="arrowup">▲</button><button class="touch left" data-p="2" data-key="arrowleft">◀</button><button class="touch kick" data-p="2" data-key="enter">ŞUT</button><button class="touch right" data-p="2" data-key="arrowright">▶</button><button class="touch down" data-p="2" data-key="arrowdown">▼</button></div>
+    </div>
+  </div>
+  <script>
+  (() => {
+    const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
+    let W=innerWidth,H=innerHeight,DPR=Math.min(devicePixelRatio||1,2);
+    function resize(){ W=innerWidth;H=innerHeight;canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0); }
+    addEventListener('resize',resize); resize();
+
+    const keys={}; let started=false, over=false, matchTime=90, last=performance.now(), score=[0,0], countdown=0;
+    const field={pad:Math.min(W*.035,34)};
+    const p1={x:0,y:0,r:24,vx:0,vy:0,color:'#32aef4',accent:'#77d4ff'};
+    const p2={x:0,y:0,r:24,vx:0,vy:0,color:'#ff4d61',accent:'#ff99a3'};
+    const ball={x:0,y:0,r:13,vx:0,vy:0,spin:0};
+
+    function resetPositions(){
+      const cx=W/2, cy=H/2; p1.x=W*.25;p1.y=cy;p2.x=W*.75;p2.y=cy; ball.x=cx;ball.y=cy;ball.vx=ball.vy=p1.vx=p1.vy=p2.vx=p2.vy=0;
+    } resetPositions();
+
+    addEventListener('keydown',e=>{ const k=e.key.toLowerCase(); keys[k]=true; if([' ','arrowup','arrowdown','arrowleft','arrowright','enter'].includes(k))e.preventDefault(); if(k===' '&&!started&&!over)start(); if(k===' '&&over)restart(); if(k==='r')restart(); });
+    addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+    document.querySelectorAll('.touch').forEach(b=>{ const k=b.dataset.key,p=b.dataset.p; const on=e=>{e.prevent(e);keys[k]=true;b.classList.add('active')}; const off=e=>{e.prevent(e);keys[k]=false;b.classList.remove('active')}; b.addEventListener('pointerdown',e=>{on(e);b.setPointerCapture(e.pointerId)}); b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off); });
+
+    function start(){ started=true;over=false;matchTime=90;score=[0,0];resetPositions();document.getElementById('message').style.display='none'; }
+    function restart(){ score=[0,0];matchTime=90;over=false;started=true;resetPositions();document.getElementById('message').style.display='none'; }
+    function goal(who){ score[who]++; document.getElementById('blueScore').textContent=score[0];document.getElementById('redScore').textContent=score[1]; countdown=1.5; resetPositions(); const msg=document.getElementById('message');msg.style.display='block';msg.innerHTML='<h1>GOL!</h1><p>'+ (who?'Kırmızı':'Mavi') +' takım attı</p>';setTimeout(()=>{if(!over&&countdown>0)msg.style.display='none'},1200); }
+
+    function movePlayer(p, left,right,up,down,kick,dt){
+      let ax=0,ay=0; if(keys[left])ax--;if(keys[right])ax++;if(keys[up])ay--;if(keys[down])ay++;
+      const len=Math.hypot(ax,ay)||1; ax/=len;ay/=len; const acc=1800;
+      p.vx+=(ax*acc-p.vx*7)*dt;p.vy+=(ay*acc-p.vy*7)*dt;
+      p.x+=p.vx*dt;p.y+=p.vy*dt;
+      const leftBound=field.pad+p.r,rightBound=W-field.pad-p.r,top=field.pad+p.r,bottom=H-field.pad-p.r;
+      p.x=Math.max(leftBound,Math.min(rightBound,p.x));p.y=Math.max(top,Math.min(bottom,p.y));
+      if(keys[kick])kickBall(p);
+    }
+    function kickBall(p){
+      const dx=ball.x-p.x,dy=ball.y-p.y,d=Math.hypot(dx,dy); if(d<p.r+ball.r+10){ const nx=dx/(d||1),ny=dy/(d||1);const power=620;ball.vx+=nx*power+ p.vx*.35;ball.vy+=ny*power+p.vy*.35;ball.spin+=(nx>0?1:-1)*.12; }
+    }
+    function collide(a,b){const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),min=a.r+b.r;if(d<min&&d>0){const nx=dx/d,ny=dy/d,overlap=min-d;a.x-=nx*overlap*.5;a.y-=ny*overlap*.5;b.x+=nx*overlap*.5;b.y+=ny*overlap*.5;const rv=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;if(rv<0){b.vx-=rv*.8*nx;b.vy-=rv*.8*ny;a.vx+=rv*.8*nx;a.vy+=rv*.8*ny;} }}
+
+    function update(dt){
+      if(!started||over)return;
+      if(countdown>0){countdown-=dt; if(countdown<=0)return;} 
+      matchTime-=dt;if(matchTime<=0){matchTime=0;over=true;started=false;const msg=document.getElementById('message');msg.style.display='block';const text=score[0]==score[1]?'BERABERE':(score[0]>score[1]?'MAVİ TAKIM KAZANDI':'KIRMIZI TAKIM KAZANDI');msg.innerHTML='<h1>'+text+'</h1><p>Tekrar için BOŞLUK — R ile sıfırla</p>';return;}
+      movePlayer(p1,'a','d','w','s',' ',dt);movePlayer(p2,'arrowleft','arrowright','arrowup','arrowdown','enter',dt);collide(p1,p2);
+      ball.vx*=Math.pow(.988,dt*60);ball.vy*=Math.pow(.988,dt*60);ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;
+      [p1,p2].forEach(p=>{const dx=ball.x-p.x,dy=ball.y-p.y,d=Math.hypot(dx,dy),min=p.r+ball.r;if(d<min){const nx=dx/(d||1),ny=dy/(d||1);ball.x=p.x+nx*min;ball.y=p.y+ny*min;ball.vx+=p.vx*.25+nx*90;ball.vy+=p.vy*.25+ny*90;}});
+      const wall=field.pad, goalTop=H*.34,goalBottom=H*.66;
+      if(ball.y<wall+ball.r && (ball.x<wall+100||ball.x>W-wall-100)){ball.y=wall+ball.r;ball.vy=Math.abs(ball.vy)*.82}
+      if(ball.y>H-wall-ball.r && (ball.x<wall+100||ball.x>W-wall-100)){ball.y=H-wall-ball.r;ball.vy=-Math.abs(ball.vy)*.82}
+      if(ball.x<wall+ball.r){ if(ball.y>goalTop&&ball.y<goalBottom){goal(1)}else{ball.x=wall+ball.r;ball.vx=Math.abs(ball.vx)*.82}}
+      if(ball.x>W-wall-ball.r){ if(ball.y>goalTop&&ball.y<goalBottom){goal(0)}else{ball.x=W-wall-ball.r;ball.vx=-Math.abs(ball.vx)*.82}}
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,W,H);ctx.fillStyle='#09120f';ctx.fillRect(0,0,W,H);
+      const pad=field.pad; ctx.fillStyle='#113d2b';ctx.fillRect(pad,pad,W-pad*2,H-pad*2);
+      ctx.strokeStyle='rgba(255,255,255,.13)';ctx.lineWidth=2;
+      for(let x=pad;x<W-pad;x+=64){ctx.beginPath();ctx.moveTo(x,pad);ctx.lineTo(x,H-pad);ctx.stroke();}
+      ctx.strokeStyle='rgba(255,255,255,.72)';ctx.lineWidth=3;ctx.strokeRect(pad,pad,W-pad*2,H-pad*2);
+      ctx.beginPath();ctx.arc(W/2,H/2,75,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(W/2,pad);ctx.lineTo(W/2,H-pad);ctx.stroke();
+      ctx.beginPath();ctx.arc(W/2,H/2,4,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+      const gt=H*.34,gb=H*.66;
+      ctx.fillStyle='#09120f';ctx.fillRect(0,gt,pad,gb-gt);ctx.fillRect(W-pad,gt,pad,gb-gt);
+      ctx.strokeStyle='#39bdf8';ctx.strokeRect(pad,gt-pad*.18,95,gb-gt+pad*.36);ctx.strokeStyle='#fb5a66';ctx.strokeRect(W-pad-95,gt-pad*.18,95,gb-gt+pad*.36);
+      ctx.strokeStyle='#39bdf8';ctx.strokeRect(pad-pad*.28,gt,5,gb-gt);ctx.strokeStyle='#fb5a66';ctx.strokeRect(W-pad-pad*.28+pad*.28,gt,5,gb-gt);
+
+      [p1,p2].forEach(p=>{ctx.save();ctx.translate(p.x,p.y);ctx.shadowBlur=22;ctx.shadowColor=p.color;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(0,0,p.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='rgba(255,255,255,.85)';ctx.beginPath();ctx.arc(-7,-8,6,0,Math.PI*2);ctx.fill();ctx.strokeStyle=p.accent;ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,p.r-4,0,Math.PI*2);ctx.stroke();ctx.restore();});
+      ctx.save();ctx.translate(ball.x,ball.y);ctx.rotate(ball.spin);ctx.shadowBlur=18;ctx.shadowColor='rgba(255,255,255,.7)';ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,ball.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='#263b50';for(let i=0;i<5;i++){const a=i*Math.PI*2/5;ctx.beginPath();ctx.moveTo(Math.cos(a)*4,Math.sin(a)*4);ctx.lineTo(Math.cos(a+.7)*10,Math.sin(a+.7)*10);ctx.lineTo(Math.cos(a+1.4)*10,Math.sin(a+1.4)*10);ctx.closePath();ctx.fill()}ctx.restore();
+      const secs=Math.ceil(matchTime),m=Math.floor(secs/60).toString().padStart(2,'0'),s=(secs%60).toString().padStart(2,'0');document.getElementById('clock').textContent=m+':'+s;
+    }
+    function loop(now){const dt=Math.min((now-last)/1000,.025);last=now;update(dt);draw();requestAnimationFrame(loop)} requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>
